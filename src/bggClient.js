@@ -63,32 +63,36 @@ const containsPlays = json => (
   json && json.plays && json.plays.play && Array.isArray(json.plays.play) && json.plays.play.length > 0
 );
 
-const normalizePlayerName = (player) => {
-  let name = player.$.name;
+const normalizePlayers = (userName, players) => {
+  if (!players || !Array.isArray(players) || players.length === 0) {
+    const players = [{ name: userName }];
 
-  if (player.$.username === "Shu_bot") {
-    name = "Sande";
+    players.error = { error: 'NO PLAYERS LOGGED' };
+
+    return players;
   }
 
-  if (name === "Misheto") {
-    name = "Misheto Maslarova";
-  }
+  const normalizedPlayers = players[0].player.map(player => {
+    let name = player.$.name;
 
-  if (name === "Cu Mikova") {
-    name = "Mama Cu";
-  }
+    if (!name || player.$.username === userName) {
+      name = userName;
+    }
 
-  return { name };
+    return { name };
+  });
+
+  return normalizedPlayers;
 };
 
-const extractPlays =  json => json.plays.play.map(play => ({
+const extractPlays = (userName, json) => json.plays.play.map(play => ({
     id: play.$.id,
     name: play.item[0].$.name,
     gameId: play.item[0].$.objectid,
     quantity: play.$.quantity,
     date: play.$.date,
     length: +play.$.length || 0,
-    players: play.players && play.players[0].player.map(normalizePlayerName) || { error: 'NO PLAYERS LOGGED' },
+    players: normalizePlayers(userName, play.players),
     location: play.$.location,
     incomplete: play.$.incomplete === '0' ? false : true,
   }));
@@ -98,7 +102,7 @@ export const fetchPlays = (userName, page = 1, collectedPlays = []) => (
     .then(res => res.text())
     .then(txt => xmlParser.parseStringPromise(txt))
     .then(json => (containsPlays(json)
-      ? fetchPlays(userName, page + 1, collectedPlays.concat(extractPlays(json)))
+      ? fetchPlays(userName, page + 1, collectedPlays.concat(extractPlays(userName, json)))
       : collectedPlays)
     ).catch((error => { console.error(error); throw error; }))
 );
