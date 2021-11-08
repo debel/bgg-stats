@@ -12,6 +12,14 @@ export const throwIfNot200 = msg => res => (res.status === 200)
   : Promise.reject(new Error(msg));
 
 
+export const anyErrors = errors => {
+  return errors.reduce((result, err) => {
+    if (err) { result = err; }
+
+    return result;
+  }, null)
+}
+
 export function withRetry(f, retriesLeft = 5) {
   return function fWithRetries(...args) {
     return Promise.resolve().then(() => f(...args)).catch(err => retriesLeft > 0

@@ -1,7 +1,7 @@
 import process from 'process';
 import { writeFile } from 'fs';
 import { promisify } from 'util';
-import { reportToConsole } from './utils.js';
+import { anyErrors } from './utils.js';
 import { fetchCollection, fetchPlays, fetchGame } from './bggClient.js';
 
 const storeFile = promisify(writeFile);
@@ -35,5 +35,8 @@ export default async function fetchAndSave(userName) {
     storeFile('./data/collection.json', JSON.stringify(collection)),
     storeFile('./data/plays.json', JSON.stringify(plays)),
     storeFile('./data/games.json', JSON.stringify(games)),
-  ]).then(reportToConsole);
+  ]).then((errors) => {
+    if (anyErrors(errors)) { console.error(`Error! ${JSON.stringify(errors)}`); }
+    else { console.log('Success!'); }
+  });
 }
