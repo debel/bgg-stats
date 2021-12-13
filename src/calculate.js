@@ -1,6 +1,3 @@
-import { writeFile } from 'fs';
-import { reportToConsole } from './utils.js';
-
 let gamesById = {};
 
 function extractMalformedPlayes(plays) {
@@ -338,12 +335,7 @@ const stats = [
   yearlyChallenges,
 ];
 
-export default async function generateStats() {
-  console.log('Generating stats...');
-
-  const plays = (await import('../data/plays.json')).default;
-  const games = (await import('../data/games.json')).default;
-
+export default async function generateStats(userName, { plays, games }) {
   const malformedPlays = extractMalformedPlayes(plays);
   gamesById = generateGamesByIdMap(games);
 
@@ -362,8 +354,8 @@ export default async function generateStats() {
 
   Object.values(playerStats).forEach(ps => stats.forEach(stat => stat.aggregate(ps)));
 
-  writeFile('./data/malformed.json', JSON.stringify(malformedPlays), reportToConsole);
-  writeFile('./data/stats.json', JSON.stringify(playerStats), reportToConsole);
-
-  return playerStats;
+  return {
+    playerStats,
+    malformedPlays,
+  };
 }
