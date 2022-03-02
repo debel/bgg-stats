@@ -17,3 +17,7 @@ export function storeStats(userName, { playerStats, malformedPlays }) {
     storeFile(`./data/${userName}-stats.json`, JSON.stringify(playerStats)),
   ]);
 }
+
+export function storeWeeklyReport(userName, startDate, endDate, report) {
+  return storeFile(`./data/${userName}-weekly-plays-${startDate}-${endDate}.txt`, report);
+}

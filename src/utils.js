@@ -1,6 +1,6 @@
 export const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-export const between = (a, b) => a + Math.random() * (b - a);
+export const between = (a, b) => a + Math.random() * Math.abs(b - a);
 
 export const reportToConsole = err => (err
   ? console.error('Error!', err)
@@ -18,13 +18,28 @@ export const anyErrors = errors => {
 
     return result;
   }, null)
-}
+};
 
-export function withRetry(f, retriesLeft = 5) {
+export function CancelError(message) {
+  const err = new Error(message);
+  err.cancelRetry = true;
+
+  return err;
+};
+
+export function withRetry(f, retries = 20) {
   return function fWithRetries(...args) {
-    return Promise.resolve().then(() => f(...args)).catch(err => retriesLeft > 0
-      ? delay(between(1000,3000)).then(() => fWithRetries(...args, retriesLeft - 1))
-      : Promise.reject('Retry failed')
-    );
+    return (function () {
+      let retriesLeft = retries;    
+      return Promise.resolve()
+        .then(() => f(...args))
+        .catch(err => ((err && err.cancelRetry) || retriesLeft <= 0)
+          ? Promise.reject(`Retry failed, ${err && err.message}`)
+          : delay(between(3000, 5000)).then(() => {
+            retriesLeft -= 1;
+            return fWithRetries(...args);
+          }) 
+      );
+    }());
   };
 };

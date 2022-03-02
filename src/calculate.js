@@ -1,14 +1,16 @@
 let gamesById = {};
 
 function extractMalformedPlayes(plays) {
-  return plays.reduce((result, play) => {
-    const noPlayers = !!(!Array.isArray(play.players) || play.players.length === 0);
-    const noLocation = !!(!play.location);
-    const noDuration = !!(!Number.isInteger(play.length) || play.length <= 0);
+  return Object.values(plays).reduce((result, playsPerDate) => {
+    playsPerDate.forEach((play) => {
+      const noPlayers = !!(!Array.isArray(play.players) || play.players.length === 0);
+      const noLocation = !!(!play.location);
+      const noDuration = !!(!Number.isInteger(play.length) || play.length <= 0);
 
-    if (noPlayers || noLocation || noDuration) {
-      result.push({ playId: play.id, noPlayers, noLocation, noDuration });
-    }
+      if (noPlayers || noLocation || noDuration) {
+        result.push({ playId: play.id, noPlayers, noLocation, noDuration });
+      }
+    });
 
     return result;
   }, []);
@@ -22,121 +24,280 @@ function generateGamesByIdMap(games) {
   }, {});
 }
 
-const timePlayed = {
-  init(stats) { stats.timePlayed = 0; },
-  track(stats, play) { stats.timePlayed += +play.length; },
-  aggregate() { },
-}
-
-const gamesPlayed = {
-  init(stats) { stats.gamesPlayed = 0; },
-  track(stats, play) { stats.gamesPlayed += +play.quantity; },
-  aggregate() { },
-}
-
-const mostComplexGamePlayed = {
-  init(stats) { stats.mostComplexGamePlayed = { complexity: 0, games: new Set() }; },
-  track(stats, play) {
-    const complexity = +gamesById[play.gameId].weight;
-
-    if (stats.mostComplexGamePlayed.complexity < complexity) {
-      stats.mostComplexGamePlayed = { complexity, games: new Set([play.name]) };
-    } else if (stats.mostComplexGamePlayed.complexity === complexity) {
-      stats.mostComplexGamePlayed.games.add(play.name);
-    }
-  },
-  aggregate(stats) {
-    stats.mostComplexGamePlayed.games = [...stats.mostComplexGamePlayed.games];
-  },
-};
-
-const playsPerLocation = {
-  init(stats) { stats.playsPerLocation = {}; },
-  track(stats, play) {
-    if (!stats.playsPerLocation[play.location]) {
-      stats.playsPerLocation[play.location] = 0;
-    }
-
-    stats.playsPerLocation[play.location] += +play.quantity;
-  },
-  aggregate() { },
-};
-
-const averagePlayTime = {
-  init() { },
-  track() { },
-  aggregate(stats) {
-    stats.averagePlayTime = stats.timePlayed / stats.gamesPlayed;
-  },
-};
-
-const longestPlay = {
-  init(stats) { stats.longestPlay = { duration: 0, plays: [] }; },
-  track(stats, play) {
-    const duration = +play.length / +play.quantity;
-    if (stats.longestPlay.duration < duration) {
-      stats.longestPlay = { duration, plays: [{ name: play.name, date: play.date }] };
-    } else if (stats.longestPlay.duration === duration) {
-      stats.longestPlay.plays.push({ name: play.name, date: play.date });
-    }
-  },
-  aggregate() { },
-}
-
-const playsPerGame = {
-  init(stats) { stats.playsPerGame = {}; },
-  track(stats, play) {
-    if (!stats.playsPerGame[play.name]) {
-      stats.playsPerGame[play.name] = { totalTime: 0, totalCount: 0 };
-    }
-
-    stats.playsPerGame[play.name].totalCount += +play.quantity;
-    stats.playsPerGame[play.name].totalTime += +play.length;
-  },
-  aggregate(stats) {
-    stats.uniqueGames = Object.keys(stats.playsPerGame).length;
-    Object.values(stats.playsPerGame).forEach(stat => {
-      stat.averagePlayTime = stat.totalTime / stat.totalCount;
-    });
-  }
-};
-
-const averageComplexity = {
-  init(stats) { stats.__complexitySumTime = 0; stats.__complexitySumPlays = 0; },
-  track(stats, play) {
-    const weight = +gamesById[play.gameId].weight;
-    stats.__complexitySumTime += weight * +play.length;
-    stats.__complexitySumPlays += weight * +play.quantity;
-  },
-  aggregate(stats) {
-    stats.averageComplexityOverTimePlayed = stats.__complexitySumTime / stats.timePlayed;
-    stats.averageComplexityOverNumberOfPlays = stats.__complexitySumPlays / stats.gamesPlayed;
-    delete stats.__complexitySumTime;
-    delete stats.__complexitySumPlays;
-  }
-}
-
-const mostPlayed = {
+const basicStats = {
   init(stats) {
-    stats.mostPlayedCount = { games: [], timesPlayed: 0 };
-    stats.mostPlayedTime = { games: [], timePlayed: 0 };
+    stats._basic = {
+      games: new Set(),
+      mechanisms: new Set(),
+      totalNumberOfPlayers: 0,
+      complexitySumTime: 0,
+      complexitySumPlays: 0,
+      uniqueLocations: new Set(),
+    };
+
+    stats.basic = {
+      totalTimePlayed: 0,
+      totalPlays: 0,
+      averagePlayTime: 0,
+      averageNumberOfPlayers: 0,
+      uniqueGamesPlayed: 0,
+      uniqueMechanisms: 0,
+      uniqueLocations: 0,
+    };
   },
-  track(stats, play) { },
+  track(stats, play) {
+    stats.basic.totalTimePlayed += +play.length;
+    stats.basic.totalPlays += +play.quantity;
+
+    stats._basic.totalNumberOfPlayers += +play.players.length;
+    stats._basic.games.add(play.name);
+    gamesById[play.gameId].mechanisms.forEach(
+      (mechanism) => stats._basic.mechanisms.add(mechanism)
+    );
+
+    const weight = +gamesById[play.gameId].weight;
+    stats._basic.complexitySumTime += weight * +play.length;
+    stats._basic.complexitySumPlays += weight * +play.quantity;
+
+    stats._basic.uniqueLocations.add(play.location);
+  },
   aggregate(stats) {
-    Object.entries(stats.playsPerGame).forEach(([name, stat]) => {
-      if (stat.totalCount > stats.mostPlayedCount.timesPlayed) {
-        stats.mostPlayedCount = { games: [name], timesPlayed: stat.totalCount };
-      } else if (stat.totalCount === stats.mostPlayedCount.timesPlayed) {
-        stats.mostPlayedCount.games.push(name);
+    stats.basic.averagePlayTime = stats.basic.totalTimePlayed / stats.basic.totalPlays;
+    stats.basic.uniqueGamesPlayed = stats._basic.games.size;
+    stats.basic.uniqueMechanisms = stats._basic.mechanisms.size;
+    stats.basic.averageNumberOfPlayers = stats._basic.totalNumberOfPlayers / stats.basic.totalPlays;
+    stats.basic.averageComplexityOverTimePlayed = stats._basic.complexitySumTime / stats.basic.totalTimePlayed;
+    stats.basic.averageComplexityOverNumberOfPlays = stats._basic.complexitySumPlays / stats.basic.totalPlays;
+    stats.basic.uniqueLocations = stats._basic.uniqueLocations.size;
+
+    delete stats._basic;
+  },
+};
+
+function trackMostComplex(stats, play) {
+  const complexity = +gamesById[play.gameId].weight;
+
+  if (stats.most.mostComplexGamePlayed.complexity < complexity) {
+    stats.most.mostComplexGamePlayed = { complexity, games: new Set([play.name]) };
+  } else if (stats.most.mostComplexGamePlayed.complexity === complexity) {
+    stats.most.mostComplexGamePlayed.games.add(play.name);
+  }
+}
+
+function trackLongestPlay(stats, play) {
+  const duration = +play.length / +play.quantity;
+
+  if (stats.most.longestPlay.duration < duration) {
+    stats.most.longestPlay = { duration, plays: [{ name: play.name, date: play.date }] };
+  } else if (stats.most.longestPlay.duration === duration) {
+    stats.most.longestPlay.plays.push({ name: play.name, date: play.date });
+  }
+}
+
+const mostStats = {
+  init(stats) {
+    stats.most = {
+      mostComplexGamePlayed: { complexity: 0, games: new Set() },
+      longestPlay: { duration: 0, plays: [] },
+      longestAveragePlay: { duration: 0, games: [] },
+      mostPlayedByDuration: { duration: 0, games: [] },
+      mostPlayedByNumberOfPlays: { plays: 0, games: [] },
+      highestAveragePlayerCount: { players: 0, games: [] },
+      mostPlayesAtLocationByPlays: { locations: [], plays: 0 },
+      mostPlayesAtLocationByDuration: { locations: [], duration: 0 },
+      gamePlayedAtMostLocations: { games: [], locations: 0 },
+    };
+  },
+  track(stats, play) {
+    trackMostComplex(stats, play);
+    trackLongestPlay(stats, play);
+  },
+  aggregate(stats) {
+    stats.most.mostComplexGamePlayed.games = [...stats.most.mostComplexGamePlayed.games];
+  },
+}
+
+const byLocation = {
+  init(stats) { stats.byLocation = {}; },
+  track(stats, play) {
+    if (!stats.byLocation[play.location]) {
+      stats.byLocation[play.location] = {
+        plays: 0,
+        duration: 0,
+      };
+    }
+
+    stats.byLocation[play.location].plays += +play.quantity;
+    stats.byLocation[play.location].duration += +play.length;
+  },
+  aggregate(stats) {
+    Object.entries(stats.byLocation).forEach(([location, { duration, plays }]) => {
+      if (plays > stats.most.mostPlayesAtLocationByPlays.plays) {
+        stats.most.mostPlayesAtLocationByPlays = { locations: [location], plays };
+      } else if (plays === stats.most.mostPlayesAtLocationByPlays.plays) {
+        stats.most.mostPlayesAtLocationByPlays.locations.push(location);
       }
 
-      if (stat.totalTime > stats.mostPlayedTime.timePlayed) {
-        stats.mostPlayedTime = { games: [name], timePlayed: stat.totalTime };
-      } else if (stat.totalTime === stats.mostPlayedTime.timePlayed) {
-        stats.mostPlayedTime.games.push(name);
+      if (duration > stats.most.mostPlayesAtLocationByDuration.duration) {
+        stats.most.mostPlayesAtLocationByDuration = { locations: [location], duration };
+      } else if (duration === stats.most.mostPlayesAtLocationByDuration.duration) {
+        stats.most.mostPlayesAtLocationByDuration.locations.push(location);
       }
     });
+  },
+};
+
+function aggregateMostTotalPlays(stats, gameStat, name) {
+  if (gameStat.totalPlays > stats.most.mostPlayedByNumberOfPlays.plays) {
+    stats.most.mostPlayedByNumberOfPlays = { games: [name], plays: gameStat.totalPlays };
+  } else if (gameStat.totalPlays === stats.most.mostPlayedByNumberOfPlays.plays) {
+    stats.most.mostPlayedByNumberOfPlays.games.push(name);
   }
+}
+
+function aggregateMostTotalDuration(stats, gameStat, name) {
+  if (gameStat.totalDuration > stats.most.mostPlayedByDuration.duration) {
+    stats.most.mostPlayedByDuration = { games: [name], duration: gameStat.totalDuration };
+  } else if (gameStat.totalDuration === stats.most.mostPlayedByDuration.duration) {
+    stats.most.mostPlayedByDuration.games.push(name);
+  }
+}
+
+function aggregateMostAverageTime(stats, gameStat, name) {
+  if (gameStat.averagePlayTime > stats.most.longestAveragePlay.duration) {
+    stats.most.longestAveragePlay = { games: [name], duration: gameStat.averagePlayTime };
+  } else if (gameStat.averagePlayTime === stats.most.longestAveragePlay.duration) {
+    stats.most.longestAveragePlay.games.push(name);
+  }
+}
+
+function aggregateMostAveragePlayerCount(stats, gameStat, name) {
+  if (gameStat.averageNumberOfPlayers > stats.most.highestAveragePlayerCount.players) {
+    stats.most.highestAveragePlayerCount = { games: [name], players: gameStat.averageNumberOfPlayers };
+  } else if (gameStat.averageNumberOfPlayers === stats.most.highestAveragePlayerCount.players) {
+    stats.most.highestAveragePlayerCount.games.push(name);
+  }
+}
+
+function aggregateMostPlayedLocationForGame(stats, gameStat, name) {
+  Object.entries(gameStat._byLocation).forEach(([location, plays]) => {
+    if (plays > gameStat.mostPlayedLocation.plays) {
+      gameStat.mostPlayedLocation = { locations: [location], plays };
+    } else if (plays === gameStat.mostPlayedLocation.plays) {
+      gameStat.mostPlayedLocation.locations.push(location);
+    }
+  });
+
+  gameStat.playedAtLocations = Object.keys(gameStat._byLocation).length;
+
+  if (gameStat.playedAtLocations > stats.most.gamePlayedAtMostLocations.locations) {
+    stats.most.gamePlayedAtMostLocations = { games: [name], locations: gameStat.playedAtLocations };
+  } else if (gameStat.playedAtLocations === stats.most.gamePlayedAtMostLocations.locations) {
+    stats.most.gamePlayedAtMostLocations.games.push(name);
+  }
+}
+
+const byGame = {
+  init(stats) { stats.byGame = {}; },
+  track(stats, play) {
+    if (!stats.byGame[play.name]) {
+      stats.byGame[play.name] = {
+        totalDuration: 0,
+        totalPlays: 0,
+        mostPlayedLocation: { locations: [], plays: 0 },
+        playedAtLocations: 0,
+        _totalNumberOfPlayers: 0,
+        _byLocation: {},
+      };
+    }
+
+    if (!stats.byGame[play.name]._byLocation[play.location]) {
+      stats.byGame[play.name]._byLocation[play.location] = 0;
+    }
+
+    stats.byGame[play.name]._byLocation[play.location] += +play.quantity;
+
+    stats.byGame[play.name].totalPlays += +play.quantity;
+    stats.byGame[play.name].totalDuration += +play.length;
+    stats.byGame[play.name]._totalNumberOfPlayers += play.players.length * +play.quantity;
+  },
+  aggregate(stats) {
+    Object.entries(stats.byGame).forEach(([name, gameStat]) => {
+      gameStat.averagePlayTime = gameStat.totalDuration / gameStat.totalPlays;
+      gameStat.averageNumberOfPlayers = gameStat._totalNumberOfPlayers / gameStat.totalPlays;
+
+      aggregateMostTotalPlays(stats, gameStat, name);
+      aggregateMostTotalDuration(stats, gameStat, name);
+      aggregateMostAverageTime(stats, gameStat, name);
+      aggregateMostAveragePlayerCount(stats, gameStat, name);
+      aggregateMostPlayedLocationForGame(stats, gameStat, name);
+
+      delete gameStat._byLocation;
+      delete gameStat._totalNumberOfPlayers;
+    });
+  }
+};
+
+function aggregateMostPlayedMechanism(stats, obj, mechanism) {
+  if (obj.plays > stats.most.mostPlayedMechanismByPlays.plays) {
+    stats.most.mostPlayedMechanismByPlays = { mechanisms: [mechanism], plays: obj.plays };
+  } else if (obj.plays === stats.most.mostPlayedMechanismByPlays.plays) {
+    stats.most.mostPlayedMechanismByPlays.mechanisms.push(mechanism);
+  }
+
+  if (obj.games.size > stats.most.mostPlayedMechanismByGames.games) {
+    stats.most.mostPlayedMechanismByGames = { mechanisms: [mechanism], games: obj.games.size };
+  } else if (obj.games.size === stats.most.mostPlayedMechanismByGames.games) {
+    stats.most.mostPlayedMechanismByGames.mechanisms.push(mechanism);
+  }
+}
+
+const byMechanism = {
+  init(stats) {
+    stats._byMechanism = {};
+    stats.most.gameWithMostMechanisms = { games: new Set(), mechanisms: 0 };
+    stats.most.mostPlayedMechanismByPlays = { mechanisms: [], plays: 0 };
+    stats.most.mostPlayedMechanismByGames = { mechanisms: [], games: 0 };
+  },
+  track(stats, play) {
+    const gameMechanisms = gamesById[play.gameId].mechanisms;
+
+    if (gameMechanisms.length > stats.most.gameWithMostMechanisms.mechanisms) {
+      stats.most.gameWithMostMechanisms = { games: new Set([play.name]), mechanisms: gameMechanisms.length };
+    } else if (gameMechanisms.length === stats.most.gameWithMostMechanisms.mechanisms) {
+      stats.most.gameWithMostMechanisms.games.add(play.name);
+    }
+
+    gameMechanisms.forEach((mechanism) => {
+      if (!stats._byMechanism[mechanism]) {
+        stats._byMechanism[mechanism] = {
+          games: new Set(),
+          plays: 0,
+        }
+      }
+
+      stats._byMechanism[mechanism].games.add(gamesById[play.gameId].name);
+      stats._byMechanism[mechanism].plays += 1;
+    });
+  },
+  aggregate(stats) {
+    stats.most.gameWithMostMechanisms.games = [...stats.most.gameWithMostMechanisms.games];
+
+    stats.ByMechanism = Object.entries(stats._byMechanism)
+      .sort(([, objA], [, objB]) => objB.plays - objA.plays)
+      .reduce((result, [mechanism, obj]) => {
+        aggregateMostPlayedMechanism(stats, obj, mechanism);
+
+        result[mechanism] = {
+          numberOfGames: obj.games.size,
+          plays: obj.plays,
+        };
+
+        return result;
+      }, {}); 
+    
+    delete stats._byMechanism;
+  },
 };
 
 const uniqueGamesPerYear = {
@@ -167,7 +328,7 @@ const uniqueGamesPerYear = {
 
       stats.byYear[thisYear].newThisYear = stats.byYear[thisYear].uniqueGames.filter(g => !allPreviousYearsCombined.has(g));
       stats.byYear[thisYear].notPlayedThisYear = [...allPreviousYearsCombined].filter(g => !stats.years[thisYear].has(g));
-  
+
       stats.byYear[thisYear].newThisYearCount = stats.byYear[thisYear].newThisYear.length;
       stats.byYear[thisYear].notPlayedThisYearCount = stats.byYear[thisYear].notPlayedThisYear.length;
     });
@@ -227,7 +388,7 @@ const yearlyChallenges = {
       result[year]['exactlyOnce'] = exactlyOnce.length;
 
       result[year]['moreThanOnce'] = over2.length;
-      
+
       if (over10.length >= 10) {
         result[year]['10x10'] = true;
       }
@@ -245,43 +406,6 @@ const yearlyChallenges = {
     delete stats._years;
   },
 };
-
-const gamesPerMechanism = {
-  init(stats) {
-    stats._byMechanism = {};
-  },
-  track(stats, play) {
-    gamesById[play.gameId].mechanisms.forEach((mechanism) => {
-      if (!stats._byMechanism[mechanism]) {
-        stats._byMechanism[mechanism] = {
-          games: new Set(),
-          plays: 0,
-        }
-      }
-
-      stats._byMechanism[mechanism].games.add(gamesById[play.gameId].name);
-      stats._byMechanism[mechanism].plays += 1;
-    });
-  },
-  aggregate(stats) {
-    stats.ByMechanism = Object.entries(stats._byMechanism)
-      .sort(([, objA], [, objB]) => objB.plays - objA.plays)
-      .reduce((result, [mechanism, obj]) => {
-        result[mechanism] = {
-          games: [...obj.games],
-          numberOfGames: obj.games.size,
-          plays: obj.plays,
-        };
-
-        return result;
-      }, {});
-
-    stats.uniqueMechanisms = Object.keys(stats.ByMechanism).length;
-
-    delete stats._byMechanism;
-  },
-};
-
 
 const gamesPerYearPublished = {
   init(stats) {
@@ -309,44 +433,54 @@ const gamesPerYearPublished = {
           numberOfGames: obj.games.size,
           plays: obj.plays,
         });
-        
+
         return result;
       }, []);
 
-    stats.uniqueYearsPublished = stats.byYearPublished.length;
+    stats.basic.gamesPublishInDifferentYears = stats.byYearPublished.length;
 
     delete stats._byYearPublished;
   },
 };
 
 const stats = [
-  timePlayed,
-  gamesPlayed,
-  mostComplexGamePlayed,
-  playsPerLocation,
-  averagePlayTime,
-  longestPlay,
-  playsPerGame,
-  averageComplexity,
-  mostPlayed,
-  gamesPerMechanism,
+  basicStats,
+  mostStats,
+  byLocation,
+  byGame,
+  byMechanism,
   gamesPerYearPublished,
   uniqueGamesPerYear,
   yearlyChallenges,
 ];
 
+function normalizePlayerName(name) {
+  if (name === 'Sande') {
+    return 'Shu_bot';
+  }
+
+  if (name === 'Misheto') {
+    return 'Misheto Maslarova';
+  }
+
+  return name;
+}
+
 export default async function generateStats(userName, { plays, games }) {
   const malformedPlays = extractMalformedPlayes(plays);
   gamesById = generateGamesByIdMap(games);
 
-  const playerStats = plays.reduce((result, play) => {
-    play.players.forEach(player => {
-      if (!result[player.name]) {
-        result[player.name] = {};
-        stats.forEach(stat => stat.init(result[player.name]));
-      }
+  const playerStats = Object.values(plays).reduce((result, playsPerDate) => {
+    playsPerDate.forEach((play) => {
+      play.players.forEach(player => {
+        const playerName = normalizePlayerName(player.name);
+        if (!result[playerName]) {
+          result[playerName] = {};
+          stats.forEach(stat => stat.init(result[playerName]));
+        }
 
-      stats.forEach(stat => stat.track(result[player.name], play));
+        stats.forEach(stat => stat.track(result[playerName], play));
+      });
     });
 
     return result;
