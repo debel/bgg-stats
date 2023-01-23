@@ -4,10 +4,13 @@ import { promisify } from 'util';
 const storeFile = promisify(writeFile);
 
 export function storeData(userName, { games, plays, collection }) {
+  const cleanGames = games.filter(g => !!g);
+  const cleanCollection = collection.filter(c => !!c);
+
   return Promise.all([
-    storeFile(`./data/${userName}-collection.json`, JSON.stringify(collection)),
+    storeFile(`./data/${userName}-collection.json`, JSON.stringify(cleanCollection)),
     storeFile(`./data/${userName}-plays.json`, JSON.stringify(plays)),
-    storeFile(`./data/${userName}-games.json`, JSON.stringify(games)),
+    storeFile(`./data/${userName}-games.json`, JSON.stringify(cleanGames)),
   ]);
 }
 

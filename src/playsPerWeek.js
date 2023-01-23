@@ -1,3 +1,5 @@
+const arrayOfWeekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 function isWithin(startDate, endDate) {
   return function ([day]) {
     const date = new Date(day);
@@ -6,24 +8,29 @@ function isWithin(startDate, endDate) {
 }
 
 const ratings = {
-  "N/A": '[BGCOLOR=#ffffff][b]&nbsp;N/A&nbsp;[/b][/BGCOLOR]',
-  1: '[BGCOLOR=#ff0000][b]&nbsp;1&nbsp;[/b][/BGCOLOR]',
-  3: '[BGCOLOR=#ff6699][b]&nbsp;3&nbsp;[/b][/BGCOLOR]',
-  4: '[BGCOLOR=#ff66cc][b]&nbsp;4&nbsp;[/b][/BGCOLOR]',
-  5: '[BGCOLOR=#cc99ff][b]&nbsp;5&nbsp;[/b][/BGCOLOR]',
-  6: '[BGCOLOR=#9999ff][b]&nbsp;6&nbsp;[/b][/BGCOLOR]',
-  7: '[BGCOLOR=#99ffff][b]&nbsp;7&nbsp;[/b][/BGCOLOR]',
-  8: '[BGCOLOR=#66ff99][b]&nbsp;8&nbsp;[/b][/BGCOLOR]',
-  9: '[BGCOLOR=#33cc99][b]&nbsp;9&nbsp;[/b][/BGCOLOR]',
-  10: '[BGCOLOR=#00cc00][b]&nbsp;10&nbsp;[/b][/BGCOLOR]',
+  "N/A": '[BGCOLOR=#ffffff][b] N/A [/b][/BGCOLOR]',
+  1: '[BGCOLOR=#ff0000][b] 1 [/b][/BGCOLOR]',
+  3: '[BGCOLOR=#ff6699][b] 3 [/b][/BGCOLOR]',
+  4: '[BGCOLOR=#ff66cc][b] 4 [/b][/BGCOLOR]',
+  5: '[BGCOLOR=#cc99ff][b] 5 [/b][/BGCOLOR]',
+  6: '[BGCOLOR=#9999ff][b] 6 [/b][/BGCOLOR]',
+  7: '[BGCOLOR=#99ffff][b] 7 [/b][/BGCOLOR]',
+  8: '[BGCOLOR=#66ff99][b] 8 [/b][/BGCOLOR]',
+  9: '[BGCOLOR=#33cc99][b] 9 [/b][/BGCOLOR]',
+  10: '[BGCOLOR=#00cc00][b] 10 [/b][/BGCOLOR]',
 }
 
-
-function formatPlaysReport(collection, plays) {
+function formatPlaysReport(games, collection, plays) {
   return plays.reduce((result, play) => {
-  const game = collection[play.name]
+  let game = collection[play.name]
     ? `[thing=${collection[play.name].gameId}][/thing]`
-    : play.name;
+    : null;
+  
+  if (game === null) {
+    game = games[play.name]
+      ? `[thing=${games[play.name].gameId}][/thing]`
+      : play.name;
+  }
   
   let rating;
   
@@ -46,37 +53,42 @@ function formatPlaysReport(collection, plays) {
   let isNew;
 
   try {
-    totalPlays = `([size=7]all time plays: ${collection[play.name].plays}[/size])`;
-    isNew = collection[play.name].plays === 1
-    ? ', [color=#ff5100][size=9]new[/size][/color]'
-    : '';
+    totalPlays = ` ([size=7]all time plays: ${collection[play.name].plays}[/size])`;
+    isNew = play.new === true
+      ? ', [color=#ff5100][size=9]new[/size][/color]'
+      : '';
   } catch (ex) {
     totalPlays = '';
     isNew = '';
   }
 
-  result += `${rating} ${game} ${totalPlays} - ${players}${plays}${isNew}\n`;
+  result += `${rating} ${game}${totalPlays} - ${players}${plays}${isNew}\n`;
 
   return result;
   }, '');
 }
 
-function formatPlayImages(collection, plays) {
-  const games = [...plays.reduce((result, play) => {
+function formatPlayImages(games, collection, plays) {
+  const uniqueGames = [...plays.reduce((result, play) => {
     result.add(play.name);
 
     return result;
   }, new Set())];
 
-  const images = games.reduce((result, game) => {
-    if (!collection[game]) {
+  const images = uniqueGames.reduce((result, game) => {
+    let imgSrc = null
+    if (collection[game]) {
+      imgSrc = collection;
+    } else if (games[game]) {
+      imgSrc = games;
+    } else {
       return result;
     }
 
-    const thumb = collection[game].thumbnail;
+    const thumb = imgSrc[game].thumbnail;
     const img = thumb.substring(thumb.lastIndexOf('/pic') + 4, thumb.length - 4);
 
-    result += `[imageid=${img} micro inline]`
+    result += `[imageid=${img} small inline]`
 
     return result;
   }, '');
@@ -84,9 +96,7 @@ function formatPlayImages(collection, plays) {
   return `${images}\n`;
 }
 
-const arrayOfWeekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-
-function producePlaysReport(collection, playsByDay) {
+function producePlaysReport(games, collection, playsByDay) {
   const sortedPlaysByDay = playsByDay.sort(
     ([day1], [day2]) => new Date(day1) - new Date(day2)
   );
@@ -95,9 +105,9 @@ function producePlaysReport(collection, playsByDay) {
     const dayName = arrayOfWeekdays[new Date(day).getDay()]
     result += `[b][u]${dayName}[/u][/b]\n`;
 
-    result += formatPlayImages(collection, plays);
+    result += formatPlayImages(games, collection, plays);
 
-    result += formatPlaysReport(collection, plays);
+    result += formatPlaysReport(games, collection, plays);
 
     result += '\n';
 
@@ -105,7 +115,8 @@ function producePlaysReport(collection, playsByDay) {
   }, '');
 }
 
-function produceWeeklyStats(games, collection, playsByDay, startDate, endDate) {
+function produceWeeklyStats(userName, games, collection, playsByDay, startDate, endDate) {
+  const blankStats = { totalPlays: 0, totalTime: 0, totalComplexity: 0, uniqueTitles: new Set(), totalPlayers: 0, own: new Set(), newGames: 0, myWins: 0, };
   const weeklyStats = playsByDay.reduce((result, [_, plays]) => {
     plays.forEach(play => {
       result.totalPlays += +play.quantity;
@@ -113,10 +124,25 @@ function produceWeeklyStats(games, collection, playsByDay, startDate, endDate) {
       result.totalPlayers += play.players.length * +play.quantity;
       result.uniqueTitles.add(play.name);
       result.totalComplexity += +games[play.name].weight * +play.length;
+      if (collection[play.name] && collection[play.name].status.own != '0') {
+        result.own.add(play.name);
+      }
+
+      if (play.new) {
+        result.newGames += 1;
+      }
+
+      result.myWins += play.players.reduce((result, player) => {
+        if (player.userName === userName && player.won == true) {
+          result += 1;
+        }
+
+        return result;
+      }, 0);
     });
 
     return result;
-  }, { totalPlays: 0, totalTime: 0, totalComplexity: 0, uniqueTitles: new Set(), totalPlayers: 0, });
+  }, blankStats);
 
   const averageComplexity = (weeklyStats.totalComplexity / weeklyStats.totalTime).toFixed(2);
   const averagePlayTime = Math.round(weeklyStats.totalTime / weeklyStats.totalPlays);
@@ -125,15 +151,18 @@ function produceWeeklyStats(games, collection, playsByDay, startDate, endDate) {
   let weeklyStatsReport = `[u][b]Weekly stats ${startDate.toLocaleDateString('de-DE')} - ${endDate.toLocaleDateString('de-DE')}[/b][/u]\n`;
   weeklyStatsReport += `Total plays: ${weeklyStats.totalPlays}\n`;
   weeklyStatsReport += `Unique titles: ${weeklyStats.uniqueTitles.size}\n`;
+  weeklyStatsReport += `New games: ${weeklyStats.newGames}\n`;
   weeklyStatsReport += `Average play duration: ${averagePlayTime} min\n`;
   weeklyStatsReport += `Average number of players: ${averagePlayers}\n`;
   weeklyStatsReport += `Average complexity: ${averageComplexity}\n`;
+  weeklyStatsReport += `Own games played: ${(weeklyStats.own.size / weeklyStats.uniqueTitles.size * 100).toFixed(2)}%\n`;
+  weeklyStatsReport += `My weekly win percentage: ${(weeklyStats.myWins / weeklyStats.totalPlays * 100).toFixed(2)}%\n`;
   weeklyStatsReport += `\n`;
 
   return weeklyStatsReport;
 }
 
-export default function(games, collection, plays, startDate, endDate) {
+export default function(userName, games, collection, plays, startDate, endDate) {
   startDate = new Date(startDate);
   endDate = new Date(endDate);
   
@@ -152,5 +181,7 @@ export default function(games, collection, plays, startDate, endDate) {
   const playsByDay = Object.entries(plays)
     .filter(isWithin(startDate, endDate));
 
-  return `${produceWeeklyStats(gamesByName, collectionByName, playsByDay, startDate, endDate)}${producePlaysReport(collectionByName, playsByDay)}`;
+  const weeklyStats = produceWeeklyStats(userName, gamesByName, collectionByName, playsByDay, startDate, endDate);
+  const playsReport = producePlaysReport(gamesByName, collectionByName, playsByDay);
+  return `${weeklyStats}${playsReport}`;
 }

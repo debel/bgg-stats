@@ -46,7 +46,7 @@ export default async function fetch(userName, startDate, endDate, savedPlays, sa
 
   const games = await Promise.all(gameIds.map(id => gamesById[id]
     ? gamesById[id]
-    : delay(between(1000,5000)).then(() => fetchGame(id).catch((err) => {
+    : delay(between(0,30000)).then(() => fetchGame(id).catch((err) => {
       console.error(`failed to fetch game ${id}`, err);
     }))
   ));

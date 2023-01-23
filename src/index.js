@@ -2,7 +2,7 @@ import process from 'process';
 
 import fetchData from './fetch.js';
 import { storeData, storeStats, storeWeeklyReport } from './store.js';
-import generateStats from './calculate.js';
+import generateStats from './statistics/calculate.js';
 import generateWeeklyReport from './playsPerWeek.js';
 
 function parseCmdLineArgs() {
@@ -50,7 +50,7 @@ function parseCmdLineArgs() {
   }
 
   if (weeklyReport) {
-    const report = generateWeeklyReport(data.games, data.collection, data.plays, startDate, endDate);
+    const report = generateWeeklyReport(userName, data.games, data.collection, data.plays, startDate, endDate);
     console.log(`Saving weekly report for ${userName}`);
     await storeWeeklyReport(userName, startDate, endDate, report);
   }

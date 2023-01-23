@@ -81,7 +81,7 @@ const normalizePlayers = (userName, players) => {
 
   const normalizedPlayers = players[0].player.map(player => {
     let name = player.$.name;
-
+    
     if (!name) {
       if (player.$.username === userName) {
         name = userName;
@@ -92,22 +92,48 @@ const normalizePlayers = (userName, players) => {
       }
     }
 
-    return { name };
+    const normalizedPlayer = {
+      name,
+      won: !!(player.$.win != '0'),
+      new: !!(player.$.new == '1'),
+    };
+
+    if (player.$.username) {
+      normalizedPlayer.userName = player.$.username;
+    }
+
+    return normalizedPlayer;
   });
 
   return normalizedPlayers;
 };
 
-const extractPlays = (userName, json) => json.plays.play.map(play => ({
-    id: play.$.id,
-    name: play.item[0].$.name,
-    gameId: play.item[0].$.objectid,
-    quantity: play.$.quantity,
-    date: play.$.date,
-    length: +play.$.length || 0,
-    players: normalizePlayers(userName, play.players),
-    location: play.$.location,
-    incomplete: play.$.incomplete === '0' ? false : true,
+const isFirstPlay = (userName, normalizedPlayers) => (
+  normalizedPlayers.reduce((result, player) => {
+    if (player.userName === userName && player.new === true) {
+      result = true;
+    }
+
+    return result;
+  }, false)
+);
+
+const extractPlays = (userName, json) => (
+  json.plays.play.map(play => {
+    const players = normalizePlayers(userName, play.players);
+
+    return {
+      id: play.$.id,
+      name: play.item[0].$.name,
+      gameId: play.item[0].$.objectid,
+      quantity: play.$.quantity,
+      date: play.$.date,
+      length: +play.$.length || 0,
+      players,
+      location: play.$.location,
+      incomplete: play.$.incomplete === '0' ? false : true,
+      new: isFirstPlay(userName, players),
+    };
   })
 );
 
