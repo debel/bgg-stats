@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { Parser } from 'xml2js';
+import { Parser } from 'browser-xml2js';
 import { throwIfNot200, withRetry, CancelError } from './utils.js';
 
 const bggBaseUrl = 'https://api.geekdo.com/xmlapi2';
@@ -21,6 +21,18 @@ const bggPlaysUrl = (userName, startDate, endDate, page) => {
 const bggGamesUrl = id => `${bggBaseUrl}/thing?stats=1&id=${id}`;
 
 const xmlParser = new Parser();
+
+if (typeof xmlParser.parseStringPromise !== 'function') {
+  xmlParser.parseStringPromise = function (str) {
+    return new Promise((resolve, reject) => {
+      xmlParser.parseString(str, (err, result) => {
+        if (err) { return reject(err); }
+
+        resolve(result);
+      });
+    });
+  }
+}
 
 const extractGameInCollection = (json) => {
   return {
