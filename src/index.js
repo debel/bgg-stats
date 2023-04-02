@@ -4,6 +4,7 @@ import fetchData from './fetch.js';
 import { storeData, storeStats, storeWeeklyReport } from './store.js';
 import generateStats from './statistics/calculate.js';
 import generateWeeklyReport from './playsPerWeek.js';
+import importData from './importData.js';
 
 function parseCmdLineArgs() {
   const args = process.argv
@@ -34,16 +35,12 @@ function parseCmdLineArgs() {
 (async function main() {
   const startTimeStamp = new Date();
   const { userName, statsOnly, weeklyReport, startDate, endDate } = parseCmdLineArgs();
-  
-  const plays = (await import(`../data/${userName}-plays.json`)).default;
-  const games = (await import(`../data/${userName}-games.json`)).default;
-  const collection = (await import(`../data/${userName}-collection.json`)).default;
-  
-  let data = { plays, games, collection };
+
+  let data = await importData(userName);
 
   if (!statsOnly) {
     console.log(`Fetching plays for ${userName}. This might take awhile...`);
-    data = await fetchData(userName, startDate, endDate, plays, games);
+    data = await fetchData(userName, startDate, endDate, data.plays, data.games);
 
     console.log(`Saving data for ${userName}`);
     await storeData(userName, data);
@@ -53,6 +50,12 @@ function parseCmdLineArgs() {
     const report = generateWeeklyReport(userName, data.games, data.collection, data.plays, startDate, endDate);
     console.log(`Saving weekly report for ${userName}`);
     await storeWeeklyReport(userName, startDate, endDate, report);
+  }
+
+  const failedGames = data.games.filter(g => !g).length;
+  if (failedGames > 0) {
+    console.error(`Failed to fetch ${failedGames} games. Please re-run the script to continue.`);
+    return;
   }
 
   console.log(`Calculating statistics for ${userName}`);

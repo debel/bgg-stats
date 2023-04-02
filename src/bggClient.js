@@ -12,7 +12,7 @@ const bggCollectionUrl = userName => (
 
 const bggPlaysUrl = (userName, startDate, endDate, page) => {
   const start = startDate ? `&mindate=${startDate}` : '';
-  
+
   const end = endDate ? `&maxdate=${endDate}` : '';
 
   return `${bggBaseUrl}/plays?username=${userName}${start}${end}&page=${page}`;
@@ -36,7 +36,7 @@ if (typeof xmlParser.parseStringPromise !== 'function') {
 
 const extractGameInCollection = (json) => {
   return {
-    gameId : json.$.objectid,
+    gameId: json.$.objectid,
     name: json.name[0]._,
     status: json.status[0].$,
     comment: json.comment,
@@ -48,7 +48,8 @@ const extractGameInCollection = (json) => {
 
 const extractGame = (id, json) => {
   if (!json.items || !json.items.item) {
-    throw new CancelError(`failed to fetch game ${id}`);
+    // throw new CancelError(`failed to extract game ${id}`);
+    throw new Error(`failed to extract game ${id}`);
   }
 
   const gameId = json.items.item[0].$.id;
@@ -62,16 +63,16 @@ const extractGame = (id, json) => {
     .map(link => link.$.value);
 
   const categories = json.items.item[0].link
-  .filter(link => link.$.type === 'boardgamecategory')
-  .map(link => link.$.value);
+    .filter(link => link.$.type === 'boardgamecategory')
+    .map(link => link.$.value);
 
   const families = json.items.item[0].link
-  .filter(link => link.$.type === 'boardgamefamily')
-  .map(link => link.$.value);
+    .filter(link => link.$.type === 'boardgamefamily')
+    .map(link => link.$.value);
 
   const designers = json.items.item[0].link
-  .filter(link => link.$.type === 'boardgamedesigner')
-  .map(link => link.$.value);
+    .filter(link => link.$.type === 'boardgamedesigner')
+    .map(link => link.$.value);
 
   return {
     gameId, name, published, mechanisms, categories, families, designers, weight, thumbnail,
@@ -93,7 +94,7 @@ const normalizePlayers = (userName, players) => {
 
   const normalizedPlayers = players[0].player.map(player => {
     let name = player.$.name;
-    
+
     if (!name) {
       if (player.$.username === userName) {
         name = userName;
@@ -159,12 +160,12 @@ const fetchPlaysPages = (userName, page, collectedPlays, startDate, endDate) => 
     ).catch((error => { console.error(error); throw error; }))
 );
 
-export const fetchGame = withRetry(id =>
-  fetch(bggGamesUrl(id))
+export const fetchGame = withRetry(id => {
+  return fetch(bggGamesUrl(id))
     .then(res => res.text())
     .then(txt => xmlParser.parseStringPromise(txt))
     .then(json => extractGame(id, json))
-);
+});
 
 export const fetchCollection = withRetry(userName => fetch(bggCollectionUrl(userName))
   .then(throwIfNot200('Failed to fetch collection'))

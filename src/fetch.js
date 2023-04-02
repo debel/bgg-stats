@@ -1,5 +1,5 @@
 import { fetchCollection, fetchPlays, fetchGame } from './bggClient.js';
-import { delay, between } from './utils.js';
+import { delay, indexBasedBatch } from './utils.js';
 
 function groupPlaysByDate(plays) {
   return plays.reduce((result, play) => {
@@ -14,7 +14,7 @@ function groupPlaysByDate(plays) {
 }
 
 function mergePlays(savedPlays) {
-  return function(fetchedPlays) {
+  return function (fetchedPlays) {
     return {
       ...savedPlays,
       ...fetchedPlays,
@@ -44,11 +44,12 @@ export default async function fetch(userName, startDate, endDate, savedPlays, sa
     return result;
   }, new Set())];
 
-  const games = await Promise.all(gameIds.map(id => gamesById[id]
+  const games = await Promise.all(gameIds.map((id, index) => gamesById[id]
     ? gamesById[id]
-    : delay(between(0,30000)).then(() => fetchGame(id).catch((err) => {
-      console.error(`failed to fetch game ${id}`, err);
-    }))
+    : delay(indexBasedBatch(index, 10, 2000))
+      .then(() => console.log(`fetching game ${id}`))
+      .then(() => fetchGame(id))
+      .catch(() => console.warn(`failed to fetch game ${id}`))
   ));
 
   return {

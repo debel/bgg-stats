@@ -95,7 +95,6 @@ const subAggregations = {
   highestAveragePlayerCount: aggregateMostAveragePlayerCount,
   gamePlayedAtMostLocations: aggregateMostPlayedLocationForGame,
   mostWonGame: aggregateMostWonGame,
-  // aggregateMostPlayedMechanism,
 };
 
 function init() {
@@ -113,11 +112,12 @@ function init() {
   };
 }
 function track(context, stats, play) {
-    trackMostComplex(context, stats, play);
-    trackLongestPlay(context, stats, play);
+  trackMostComplex(context, stats, play);
+  trackLongestPlay(context, stats, play);
 }
 
 function aggregate(buffer) {
+  debugger;
   const results = {
     mostComplexGamePlayed: {
       games: [...buffer.mostComplexGamePlayed.games],
@@ -142,6 +142,9 @@ function aggregate(buffer) {
   Object.entries(buffer.byMechanism).forEach(([mechanism, obj]) => {
     aggregateMostPlayedMechanism(buffer, obj, mechanism);
   });
+
+  results.mostPlayedMechanismByGames = buffer.mostPlayedMechanismByGames;
+  results.mostPlayedMechanismByPlays = buffer.mostPlayedMechanismByPlays;
 
   return results;
 }

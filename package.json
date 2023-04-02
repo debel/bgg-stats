@@ -11,8 +11,8 @@
   },
   "devDependencies": {},
   "scripts": {
-    "bgg": "node --experimental-json-modules src/index.js",
-    "debug": "node --inspect-brk --experimental-json-modules src/index.js"
+    "bgg": "node src/index.js",
+    "debug": "node --inspect-brk src/index.js"
   },
   "author": "Mihail Mikov",
   "license": "ISC"

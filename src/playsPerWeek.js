@@ -22,49 +22,49 @@ const ratings = {
 
 function formatPlaysReport(games, collection, plays) {
   return plays.reduce((result, play) => {
-  let game = collection[play.name]
-    ? `[thing=${collection[play.name].gameId}][/thing]`
-    : null;
-  
-  if (game === null) {
-    game = games[play.name]
-      ? `[thing=${games[play.name].gameId}][/thing]`
-      : play.name;
-  }
-  
-  let rating;
-  
-  try {
-    rating = ratings[collection[play.name].rating];
-  } catch (ex) {
-    console.error(play.name)
-    rating = ratings['N/A'];
-  }
-  
-  const players = play.players.length === 1
-    ? 'solo'
-    : `${play.players.length} players`;
+    let game = collection[play.name]
+      ? `[thing=${collection[play.name].gameId}][/thing]`
+      : null;
 
-  const plays = play.quantity === "1"
-    ? ''
-    : `, ${play.quantity} plays`;
-  
-  let totalPlays;
-  let isNew;
+    if (game === null) {
+      game = games[play.name]
+        ? `[thing=${games[play.name].gameId}][/thing]`
+        : play.name;
+    }
 
-  try {
-    totalPlays = ` ([size=7]all time plays: ${collection[play.name].plays}[/size])`;
-    isNew = play.new === true
-      ? ', [color=#ff5100][size=9]new[/size][/color]'
-      : '';
-  } catch (ex) {
-    totalPlays = '';
-    isNew = '';
-  }
+    let rating;
 
-  result += `${rating} ${game}${totalPlays} - ${players}${plays}${isNew}\n`;
+    try {
+      rating = ratings[collection[play.name].rating];
+    } catch (ex) {
+      console.error(play.name)
+      rating = ratings['N/A'];
+    }
 
-  return result;
+    const players = play.players.length === 1
+      ? 'solo'
+      : `${play.players.length} players`;
+
+    const plays = play.quantity === "1"
+      ? ''
+      : `, ${play.quantity} plays`;
+
+    let totalPlays;
+    let isNew;
+
+    try {
+      totalPlays = ` ([size=7]all time plays: ${collection[play.name].plays}[/size])`;
+      isNew = play.new === true
+        ? ', [color=#ff5100][size=9]new[/size][/color]'
+        : '';
+    } catch (ex) {
+      totalPlays = '';
+      isNew = '';
+    }
+
+    result += `${rating} ${game}${totalPlays} - ${players}${plays}${isNew}\n`;
+
+    return result;
   }, '');
 }
 
@@ -100,7 +100,7 @@ function producePlaysReport(games, collection, playsByDay) {
   const sortedPlaysByDay = playsByDay.sort(
     ([day1], [day2]) => new Date(day1) - new Date(day2)
   );
-  
+
   return sortedPlaysByDay.reduce((result, [day, plays]) => {
     const dayName = arrayOfWeekdays[new Date(day).getDay()]
     result += `[b][u]${dayName}[/u][/b]\n`;
@@ -162,10 +162,10 @@ function produceWeeklyStats(userName, games, collection, playsByDay, startDate, 
   return weeklyStatsReport;
 }
 
-export default function(userName, games, collection, plays, startDate, endDate) {
+export default function (userName, games, collection, plays, startDate, endDate) {
   startDate = new Date(startDate);
   endDate = new Date(endDate);
-  
+
   const collectionByName = collection.reduce((result, game) => {
     result[game.name] = game;
 
