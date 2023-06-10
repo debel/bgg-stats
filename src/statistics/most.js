@@ -117,7 +117,6 @@ function track(context, stats, play) {
 }
 
 function aggregate(buffer) {
-  debugger;
   const results = {
     mostComplexGamePlayed: {
       games: [...buffer.mostComplexGamePlayed.games],

@@ -23,7 +23,7 @@ const ratings = {
 function formatPlaysReport(games, collection, plays) {
   return plays.reduce((result, play) => {
     let game = collection[play.name]
-      ? `[thing=${collection[play.name].gameId}][/thing]`
+      ? `[thing=${collection[play.name].gameId}]${play.name}[/thing]`
       : null;
 
     if (game === null) {

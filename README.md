@@ -7,12 +7,12 @@ npm install
 
 ## Running the script
 ```
-npm run bgg Your-BGG-User-Name
+npm run bgg -- fetch --userName=XXX
 ```
 
 You can also only run the statistics calculation using
 ```
-npm run bgg -- --stats-only Your-BGG-User-Name
+npm run bgg -- weekly --userName=XXX --startDate=YYYY-MM-DD --endDate=YYYY-MM-DD
 ```
 
 ## Explore the stats

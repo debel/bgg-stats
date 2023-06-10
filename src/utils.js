@@ -43,3 +43,14 @@ export function withRetry(f, totalRetries = 5) {
     }(0));
   };
 };
+
+export function timed(f) {
+  return async function (...args) {
+    const startTimeStamp = new Date();
+    const result = await f(...args);
+    const endTimeStamp = new Date();
+    console.log(`Finished ${f.name} in `, endTimeStamp - startTimeStamp);
+
+    return result;
+  };
+}
